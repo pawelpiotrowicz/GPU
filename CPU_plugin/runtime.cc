@@ -1,12 +1,26 @@
 #include "paddle/phi/backends/device_ext.h"
-
+#include "oneapi/dnnl/dnnl.hpp"
+#include <vector>
 #include <cstdlib>
 
+
+static int main_dev = -1; 
 
 static size_t global_total_mem_size = 1 * 1024 * 1024 * 1024UL;
 static size_t global_free_mem_size = global_total_mem_size;
 
+struct DeviceContext {
+     dnnl::engine eng;
+     C_Stream stream;
+};
+
+static std::vector<DeviceContext> dc;
+
+
 C_Status set_device(const C_Device device) {
+
+  main_dev = device->id; 
+
   return C_SUCCESS;
 }
 
@@ -26,7 +40,26 @@ C_Status get_device_list(size_t *device) {
 }
 
 C_Status memory_copy(const C_Device device, void *dst, const void *src, size_t size) {
+  
+  if(!device || device->id!=0)
+  {
+     return C_FAILED;
+  }
+
+  if(!src)
+  {
+     return C_FAILED;
+  }
+  
+  if(!dst)
+  {
+     return C_FAILED;
+  }
+  
+  // gpu copy
+  
   memcpy(dst, src, size);
+
   return C_SUCCESS;
 }
 
@@ -35,7 +68,14 @@ C_Status allocate(const C_Device device, void **ptr, size_t size) {
     return C_FAILED;
   }
   global_free_mem_size -= size;
-  *ptr = malloc(size);
+  
+ // *ptr = malloc(size);
+  const auto tz = dnnl::memory::dims {1, 1, 1, size};
+  auto m_mem
+           = dnnl::memory({{tz}, dnnl::memory::data_type::f32, dnnl::memory::format_tag::nchw},
+                    dc[main_dev].eng);
+  // *ptr = m_mem;
+
   return C_SUCCESS;
 }
 
