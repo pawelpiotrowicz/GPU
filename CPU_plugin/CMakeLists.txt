@@ -3,6 +3,17 @@ cmake_minimum_required(VERSION 3.10)
 project(paddle-custom_cpu CXX C)
 
 
+set(ONEAPI_PATH "/opt/intel/oneapi")
+set(ONEAPI_COMPILER_DIR "compiler/2022.1.0")
+set(DPCPP_COMPIER_PATH "${ONEAPI_PATH}/${ONEAPI_COMPILER_DIR}/linux/bin/dpcpp")
+set(ONEAPI_SYCL_INCLUDE "${ONEAPI_PATH}/${ONEAPI_COMPILER_DIR}/linux/include/sycl/")
+set(ONEAPI_SYCL_LIBDIR "${ONEAPI_PATH}/${ONEAPI_COMPILER_DIR}/linux/lib/")
+#set(CMAKE_CXX_COMPILER "${DPCPP_COMPIER_PATH}")
+
+
+
+####################
+
 set(PADDLE_BUILD_DIR "/backup/work/Paddle/build_gcc_Release")
 #set(CND_PYTHON "/opt/conda/lib/python3.7")
 set(CND_PYTHON "/home/pablo/miniconda3/envs/cpu/lib/python3.9")
@@ -24,8 +35,8 @@ set(GLOG_INC_DIR       "${PADDLE_BUILD_DIR}/third_party/install/glog/include")
 set(THREAD_INC_DIR     "${PADDLE_BUILD_DIR}/third_party/threadpool/src/extern_threadpool")
 set(THIRD_PARTY_INC_DIR ${BOOST_INC_DIR} ${GFLAGS_INC_DIR} ${GLOG_INC_DIR} ${THREAD_INC_DIR})
 
-include_directories(${PADDLE_INC_DIR} ${THIRD_PARTY_INC_DIR} ${ONEDNN_INC})
-link_directories(${PADDLE_LIB_DIR} ${ONEDNN_LIB})
+include_directories( ${ONEAPI_SYCL_INCLUDE} ${PADDLE_INC_DIR} ${THIRD_PARTY_INC_DIR} ${ONEDNN_INC})
+link_directories(${PADDLE_LIB_DIR} ${ONEDNN_LIB} ${ONEAPI_SYCL_LIBDIR})
 
 add_definitions(-DPADDLE_WITH_CUSTOM_DEVICE)  # for out CustomContext temporarily
 add_definitions(-DPADDLE_WITH_CUSTOM_KERNEL)  # for out fluid seperate temporarily
@@ -33,6 +44,13 @@ add_definitions(-DPADDLE_WITH_CUSTOM_KERNEL)  # for out fluid seperate temporari
 ############ Compile plug-ins
 add_library(${PLUGIN_NAME} SHARED runtime.cc add_kernel.cc)
 target_link_libraries(${PLUGIN_NAME} PRIVATE :core_avx.so libdnnl.so)  # special name
+
+if( "${CMAKE_CXX_COMPILER}" STREQUAL "${DPCPP_COMPIER_PATH}" )
+        add_definitions(-DUSEDPCPP)
+        set_target_properties(${PLUGIN_NAME} PROPERTIES CXX_STANDARD 17)
+endif()
+
+#set_target_properties(${PLUGIN_NAME} PROPERTIES CXX_STANDARD 17)
 
 ############ Assembly plug-ins
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/setup.py.in

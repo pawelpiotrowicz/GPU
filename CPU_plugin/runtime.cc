@@ -1,9 +1,14 @@
 #include "paddle/phi/backends/device_ext.h"
 #include "oneapi/dnnl/dnnl.hpp"
 #include <vector>
+#include <iostream>
 #include <cstdlib>
+#ifdef USEDPCPP 
+#include <CL/sycl.hpp>
+#endif
+#include <unistd.h>
 
-
+#define show(x) std::cout << "[STDCOUT]::" << x << std::endl; 
 static int main_dev = -1; 
 
 static size_t global_total_mem_size = 1 * 1024 * 1024 * 1024UL;
@@ -14,33 +19,41 @@ struct DeviceContext {
      C_Stream stream;
 };
 
-static std::vector<DeviceContext> dc;
+// static std::vector<DeviceContext> dc;
 
-
+//static sycl::default_selector selector; 
+//static sycl::queue q(selector);
 C_Status set_device(const C_Device device) {
+ show("set_device()");
+  main_dev = device->id;
 
-  main_dev = device->id; 
-
+  show("====== PRINT DEVICE INFO =====");
+  
+  //std::cout << "\n\n" << "### DEVICE -> " << q.get_device().get_info<sycl::info::device::name>() << std::endl;
   return C_SUCCESS;
 }
 
 C_Status get_device(const C_Device device) {
+  show("get_device()");
   device->id = 0;
   return C_SUCCESS;
 }
 
 C_Status get_device_count(size_t *count) {
+  show("get_device_count()");
   *count = 1;
   return C_SUCCESS;
 }
 
 C_Status get_device_list(size_t *device) {
+  show("get_device_list()"); 
+  
   *device = 0;
   return C_SUCCESS;
 }
 
 C_Status memory_copy(const C_Device device, void *dst, const void *src, size_t size) {
-  
+  show("memory_copy()");
   if(!device || device->id!=0)
   {
      return C_FAILED;
@@ -64,22 +77,26 @@ C_Status memory_copy(const C_Device device, void *dst, const void *src, size_t s
 }
 
 C_Status allocate(const C_Device device, void **ptr, size_t size) {
+  
+  show("allocate()");
   if (size > global_free_mem_size) {
     return C_FAILED;
   }
   global_free_mem_size -= size;
   
- // *ptr = malloc(size);
-  const auto tz = dnnl::memory::dims {1, 1, 1, size};
-  auto m_mem
-           = dnnl::memory({{tz}, dnnl::memory::data_type::f32, dnnl::memory::format_tag::nchw},
-                    dc[main_dev].eng);
-  // *ptr = m_mem;
+  *ptr = malloc(size);
+  // const auto tz = dnnl::memory::dims {1, 1, 1, size};
+  // auto m_mem
+  //          = dnnl::memory({{tz}, dnnl::memory::data_type::f32, dnnl::memory::format_tag::nchw},
+  //                   dc[main_dev].eng);
+  //*ptr = m_mem;
 
   return C_SUCCESS;
 }
 
 C_Status deallocate(const C_Device device, void *ptr, size_t size) {
+  
+  show("deallocate()");
   if (!ptr) {
     return C_FAILED;
   }
