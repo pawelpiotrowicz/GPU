@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#git clone https://github.com/oneapi-src/oneDNN.git
+git clone https://github.com/oneapi-src/oneDNN.git
 cd oneDNN
 
 if [ -f build ]; then
