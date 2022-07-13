@@ -5,9 +5,31 @@
 #include "example_utils.hpp"
 #include "oneapi/dnnl/dnnl.hpp"
 #define show(x) std::cout << x << std::endl;
-
+#include <stdio.h>
 using CoreType = float;
 
+//template<class T>
+void readFromMem(void* dst, const dnnl::memory& mem)
+{
+
+   printf("============TUTAJ=========\n");
+    for(size_t i=0;i<5;i++)
+    {
+       float k = 777777.44;
+       k  = *(((float *)mem.get_data_handle()) + i);
+                     printf("%f ", k);
+                     fflush(stdout);
+    }
+
+  // show("ReadFromMem : " << mem.get_desc().get_size() << " tab[0]=" << *((float*)mem.get_data_handle()));
+   memcpy(dst, mem.get_data_handle(), mem.get_desc().get_size());
+}
+
+
+void writeToMem(dnnl::memory& mem , const void* src, size_t bytes) {
+
+        memcpy(mem.get_data_handle(),src,bytes);
+}
 template<class T>
 bool verify_on_cpu(T& out, T& in1, T& in2)
 {
@@ -61,7 +83,13 @@ template<class T>
 auto malloc_gpu(int N=64) {
     show("GPU allocate " << sizeof(T)*N << " bytes");
    // return std::unique_ptr<T[],decltype(&sycl_delete<T>)>( sycl::malloc_device<T>(N,getQ()) , &sycl_delete<T>  );
-     return std::unique_ptr<T[],decltype(&sycl_delete<T>)>( sycl::malloc_shared<T>(N,getQ()) , &sycl_delete<T>  );
+     //return std::unique_ptr<T[],decltype(&sycl_delete<T>)>( sycl::malloc_shared<T>(N,getQ()) , &sycl_delete<T>  );
+      return std::unique_ptr<T[],decltype(&sycl_delete<T>)>( sycl::malloc_shared<T>(N,getQ()) , &sycl_delete<T>  );
+   //    T *ptr = reinterpret_cast<T*>(sycl::aligned_alloc_device(64, N * sizeof(T), getQ()));
+   //    return std::unique_ptr<T[], decltype(&sycl_delete<T>)>(ptr, &sycl_delete<T>);
+
+    // sycl::aligned_alloc_device(64, size, getQ());
+
 
 }
 
@@ -101,7 +129,7 @@ main(int argc, char **argv)
    auto gpu_mem_x = malloc_gpu<CoreType>(items);
    auto gpu_mem_y = malloc_gpu<CoreType>(items);
 
-
+   auto gpu_mem_output = malloc_gpu<CoreType>(items);
 
    // Fill memory
 
@@ -128,10 +156,10 @@ main(int argc, char **argv)
    using tag = memory::format_tag;
    using dt = memory::data_type;
 
-    dnnl::engine engine(dnnl::engine::kind::gpu, 0);
+    dnnl::engine eng(dnnl::engine::kind::gpu, 0);
     // dnnl::engine engine(dnnl::engine::kind::cpu, 0);
 
-   dnnl::stream engine_stream(engine);
+   dnnl::stream engine_stream(eng);
    const memory::dim N = 5;
    // const memory::dim N = 3, // batch size
    //             IC = 3, // channels
@@ -165,16 +193,20 @@ main(int argc, char **argv)
    auto y_md = memory::desc(y_dims, toDnnType<CoreType>::type, tag::a);
    auto xy_md = memory::desc(y_dims, toDnnType<CoreType>::type, tag::a);
 
-   auto x_mem = memory(x_md, engine);
-   auto y_mem = memory(y_md, engine, gpu_mem_y.get());
-   auto out_xy = memory(xy_md, engine);
+   auto x_mem = memory(x_md, eng);
+   auto y_mem = memory(y_md, eng);
+   auto out_xy = memory(xy_md, eng);
 
    // Write data to memory object's handle.
-   write_to_dnnl_memory(x_data.data(), x_mem);
-   write_to_dnnl_memory(y_data.data(), y_mem);
+
+  // writeToMem(x_mem, x_data.data(), x_data.size() * sizeof(CoreType));
+  // writeToMem(y_mem, y_data.data(), y_data.size() * sizeof(CoreType));
+
+   // write_to_dnnl_memory(x_data.data(), x_mem);
+   // write_to_dnnl_memory(y_data.data(), y_mem);
 
    auto oper_desc = binary::desc(algorithm::binary_mul, x_md, y_md, xy_md);
-   auto prim_desc = binary::primitive_desc(oper_desc, engine);
+   auto prim_desc = binary::primitive_desc(oper_desc, eng);
    auto prim = binary(prim_desc);
 
    std::unordered_map<int, memory> binary_args;
@@ -182,15 +214,15 @@ main(int argc, char **argv)
    binary_args.insert({DNNL_ARG_SRC_1, y_mem});
    binary_args.insert({DNNL_ARG_DST, out_xy});
 
-   prim.execute(engine, binary_args);
+   prim.execute(eng, binary_args);
    engine_stream.wait();
 
    std::vector<CoreType> cpu_out(N);
 
    show("Final " << cpu_out);
 
-   read_from_dnnl_memory(cpu_out.data(), out_xy);
-
+  // read_from_dnnl_memory(cpu_out.data(), out_xy);
+   readFromMem(cpu_out.data(), out_xy);
    show("Final " << cpu_out);
 
    if (verify_on_cpu(cpu_out, x_data, y_data))
@@ -210,7 +242,7 @@ main(int argc, char **argv)
 
    // read_from_dnnl_memory(cpu_out.data(), scl_mem);
 
-   //show("SCL_INTEROP_MEMORY : " << cpu_out );
+   show("SCL_INTEROP_MEMORY : " << cpu_out );
 
 
 
