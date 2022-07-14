@@ -8,6 +8,15 @@
 #include <stdio.h>
 using CoreType = float;
 
+using namespace dnnl;
+
+using tag = memory::format_tag;
+using dt = memory::data_type;
+
+dnnl::engine eng(dnnl::engine::kind::gpu, 0);
+//  dnnl::engine eng(dnnl::engine::kind::cpu, 0);
+dnnl::stream engine_stream(eng);
+
 //template<class T>
 void readFromMem(void* dst, const dnnl::memory& mem)
 {
@@ -84,9 +93,9 @@ auto malloc_gpu(int N=64) {
     show("GPU allocate " << sizeof(T)*N << " bytes");
    // return std::unique_ptr<T[],decltype(&sycl_delete<T>)>( sycl::malloc_device<T>(N,getQ()) , &sycl_delete<T>  );
      //return std::unique_ptr<T[],decltype(&sycl_delete<T>)>( sycl::malloc_shared<T>(N,getQ()) , &sycl_delete<T>  );
-      return std::unique_ptr<T[],decltype(&sycl_delete<T>)>( sycl::malloc_shared<T>(N,getQ()) , &sycl_delete<T>  );
-   //    T *ptr = reinterpret_cast<T*>(sycl::aligned_alloc_device(64, N * sizeof(T), getQ()));
-   //    return std::unique_ptr<T[], decltype(&sycl_delete<T>)>(ptr, &sycl_delete<T>);
+     // return std::unique_ptr<T[],decltype(&sycl_delete<T>)>( sycl::malloc_shared<T>(N,getQ()) , &sycl_delete<T>  );
+    T *ptr = reinterpret_cast<T *>(sycl::aligned_alloc_device(64, N * sizeof(T), getQ()));
+    return std::unique_ptr<T[], decltype(&sycl_delete<T>)>(ptr, &sycl_delete<T>);
 
     // sycl::aligned_alloc_device(64, size, getQ());
 
@@ -122,6 +131,8 @@ struct toDnnType<float>
    const static dnnl::memory::data_type type = dnnl::memory::data_type::f32;
 };
 
+
+
 int
 main(int argc, char **argv)
 {
@@ -150,16 +161,9 @@ main(int argc, char **argv)
    show("Sycl Return " << cpu_mem_x);
 
    // ####################################
-   using namespace dnnl;
 
 
-   using tag = memory::format_tag;
-   using dt = memory::data_type;
 
-   // dnnl::engine eng(dnnl::engine::kind::gpu, 0);
-     dnnl::engine eng(dnnl::engine::kind::cpu, 0);
-
-   dnnl::stream engine_stream(eng);
    const memory::dim N = 5;
    // const memory::dim N = 3, // batch size
    //             IC = 3, // channels
@@ -194,7 +198,13 @@ main(int argc, char **argv)
    auto xy_md = memory::desc(y_dims, toDnnType<CoreType>::type, tag::a);
 
    auto x_mem = memory(x_md, eng);
+
+   auto usm_mem = sycl_interop::make_memory(
+       xy_md, eng, sycl_interop::memory_kind::usm, gpu_mem_y.get());
+
    auto y_mem = memory(y_md, eng);
+
+
    auto out_xy = memory(xy_md, eng);
 
    // Write data to memory object's handle.
@@ -238,9 +248,9 @@ main(int argc, char **argv)
    //####################################
 
    // auto scl_mem = sycl_interop::make_memory(
-   //     xy_md, engine, sycl_interop::memory_kind::usm, gpu_mem_y.get());
+   //     xy_md, eng, sycl_interop::memory_kind::usm, gpu_mem_y.get());
 
-   // read_from_dnnl_memory(cpu_out.data(), scl_mem);
+   //  read_from_dnnl_memory(cpu_out.data(), scl_mem);
 
    show("SCL_INTEROP_MEMORY : " << cpu_out );
 
