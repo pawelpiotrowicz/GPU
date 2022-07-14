@@ -131,7 +131,7 @@ main(int argc, char **argv)
 
    auto gpu_mem_output = malloc_gpu<CoreType>(items);
 
-   // Fill memory
+   // Fill memory with some numbers
 
    getQ().submit([&](sycl::handler &h)
                  { h.parallel_for(items, [x = gpu_mem_x.get(), y = gpu_mem_y.get()](sycl::id<1> i)
@@ -156,8 +156,8 @@ main(int argc, char **argv)
    using tag = memory::format_tag;
    using dt = memory::data_type;
 
-    dnnl::engine eng(dnnl::engine::kind::gpu, 0);
-    // dnnl::engine engine(dnnl::engine::kind::cpu, 0);
+   // dnnl::engine eng(dnnl::engine::kind::gpu, 0);
+     dnnl::engine eng(dnnl::engine::kind::cpu, 0);
 
    dnnl::stream engine_stream(eng);
    const memory::dim N = 5;
@@ -202,8 +202,8 @@ main(int argc, char **argv)
   // writeToMem(x_mem, x_data.data(), x_data.size() * sizeof(CoreType));
   // writeToMem(y_mem, y_data.data(), y_data.size() * sizeof(CoreType));
 
-   // write_to_dnnl_memory(x_data.data(), x_mem);
-   // write_to_dnnl_memory(y_data.data(), y_mem);
+    write_to_dnnl_memory(x_data.data(), x_mem);
+    write_to_dnnl_memory(y_data.data(), y_mem);
 
    auto oper_desc = binary::desc(algorithm::binary_mul, x_md, y_md, xy_md);
    auto prim_desc = binary::primitive_desc(oper_desc, eng);
