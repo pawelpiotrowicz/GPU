@@ -1,7 +1,7 @@
 #include <iostream>
 #include <memory>
 #include <CL/sycl.hpp>
-
+#include "oneapi/dnnl/dnnl_sycl.hpp"
 #include "example_utils.hpp"
 #include "oneapi/dnnl/dnnl.hpp"
 #define show(x) std::cout << x << std::endl;
@@ -199,11 +199,13 @@ main(int argc, char **argv)
 
    auto x_mem = memory(x_md, eng);
 
-   auto usm_mem = sycl_interop::make_memory(
-       xy_md, eng, sycl_interop::memory_kind::usm, gpu_mem_y.get());
+   // auto usm_mem = sycl_interop::make_memory(
+   //     xy_md, eng, sycl_interop::memory_kind::usm, gpu_mem_y.get());
 
-   auto y_mem = memory(y_md, eng);
-
+ //  auto y_mem = memory(y_md, eng, usm_mem.get());
+   // auto y_mem = sycl_interop::make_memory(xy_md, eng, sycl_interop::memory_kind::usm, gpu_mem_y.get());
+  // auto y_mem = memory(y_md, eng, gpu_mem_y.get());
+   auto y_mem = memory(xy_md, eng, gpu_mem_y.get());
 
    auto out_xy = memory(xy_md, eng);
 
