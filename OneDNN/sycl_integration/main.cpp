@@ -197,8 +197,8 @@ main(int argc, char **argv)
 
    auto x_mem = memory(x_md, eng);
 
-//   auto y_mem = sycl_interop::make_memory(
-//       xy_md, eng, sycl_interop::memory_kind::usm, gpu_mem_y.get());
+  // auto y_mem = sycl_interop::make_memory(
+   //    xy_md, eng, sycl_interop::memory_kind::usm, gpu_mem_y.get());
    auto y_mem = memory(xy_md, eng, gpu_mem_y.get());   //auto y_mem = memory(y_md, eng, usm_mem.get());
 
 
