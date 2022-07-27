@@ -13,9 +13,29 @@ using namespace dnnl;
 using tag = memory::format_tag;
 using dt = memory::data_type;
 
-dnnl::engine eng(dnnl::engine::kind::gpu, 0);
+static sycl::queue &getQ()
+{
+   static sycl::queue q{sycl::gpu_selector{}};
+   return q;
+}
+
+ dnnl::engine eng = []()
+{
+    return sycl_interop::make_engine(getQ().get_device(), getQ().get_context());
+ }();
+
+//dnnl::engine eng(dnnl::engine::kind::gpu, 0);
+
+
+
+
 //  dnnl::engine eng(dnnl::engine::kind::cpu, 0);
-dnnl::stream engine_stream(eng);
+//dnnl::stream engine_stream(eng);
+
+ dnnl::stream engine_stream = []()
+{
+    return sycl_interop::make_stream(eng, getQ());
+ }();
 
 //template<class T>
 void readFromMem(void* dst, const dnnl::memory& mem)
@@ -61,10 +81,7 @@ bool verify_on_cpu(T& out, T& in1, T& in2)
 }
 
 
-static sycl::queue& getQ() {
-   static sycl::queue q{sycl::gpu_selector{}};
-   return q;
-}
+
 
 template<class T>
 void sycl_delete(T *v)
