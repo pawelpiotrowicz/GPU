@@ -13,10 +13,45 @@ using namespace dnnl;
 using tag = memory::format_tag;
 using dt = memory::data_type;
 
-static sycl::queue &getQ()
+std::vector<sycl::device> gpu_devs;
+std::unique_ptr<sycl::queue> q_ptr;
+
+auto intel_match = [](sycl::device &dev) -> bool
 {
-   static sycl::queue q{sycl::gpu_selector{}};
-   return q;
+   const auto name = dev.template get_info<sycl::info::device::name>();
+   return (name.find("Intel(R) Graphics") != std::string::npos) ? true : false;
+};
+
+sycl::queue& getQ()
+{
+
+   if(!q_ptr)
+   {
+
+      auto devices = sycl::device::get_devices(sycl::info::device_type::gpu);
+
+      std::copy_if(
+          devices.begin(), devices.end(), std::back_inserter(gpu_devs), intel_match);
+
+      if(!gpu_devs.size())
+      {
+         show("Error: No Intel device found");
+         exit(1);
+      }
+
+      for(auto& dev: gpu_devs)
+      {
+         show("Found GPU : " << dev.get_info<sycl::info::device::name>());
+      }
+
+      q_ptr = std::make_unique<sycl::queue>(gpu_devs[0]);
+
+   }
+
+   //static sycl::queue q{sycl::gpu_selector{}};
+  // return q;
+
+   return *q_ptr;
 }
 
  dnnl::engine eng = []()
@@ -26,13 +61,10 @@ static sycl::queue &getQ()
 
 //dnnl::engine eng(dnnl::engine::kind::gpu, 0);
 
-
-
-
 //  dnnl::engine eng(dnnl::engine::kind::cpu, 0);
 //dnnl::stream engine_stream(eng);
 
- dnnl::stream engine_stream = []()
+dnnl::stream engine_stream = []()
 {
     return sycl_interop::make_stream(eng, getQ());
  }();
